@@ -24,10 +24,12 @@ if [[ -f "${REPO_DIR}/.env" ]]; then
   set +a
 fi
 
+START_EPOCH=$(date +%s)
 TS="$(date '+%F %T')"
 LOG_DIR="${REPO_DIR}/run-logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/run-$(date '+%F_%H%M%S').log"
+LOG_BASENAME="$(basename "$LOG_FILE")"
 
 send_telegram() {
   local title="$1"; shift
@@ -57,8 +59,8 @@ notify() {
   send_pushplus "$title" "$body"
 }
 
-# Human-friendly start notification
-notify "[Rewards] 启动" "日期：${TS}\n模式：${MODE}\n日志：${LOG_FILE}"
+# Start notification
+notify "[Rewards] 启动" "时间：${TS}\n模式：${MODE}\n日志：${LOG_BASENAME}"
 
 # Ensure log exists for tail -F
 : > "$LOG_FILE"
@@ -114,13 +116,35 @@ if [[ $EXIT_CODE -ne 0 ]]; then
   ALERTS+=("进程退出码非 0：${EXIT_CODE}")
 fi
 
-# Human-friendly end notification
-SUMMARY_PRETTY="$SUMMARY_LINE"
+# End notification (parse summary into human-friendly fields)
+END_EPOCH=$(date +%s)
+DURATION=$((END_EPOCH - START_EPOCH))
+DUR_MIN=$((DURATION / 60))
+DUR_SEC=$((DURATION % 60))
+
+TOTAL_POINTS="$(echo "$SUMMARY_LINE" | sed -nE 's/.*Collected: \+([0-9]+).*/\1/p')"
+MOBILE_POINTS="$(echo "$SUMMARY_LINE" | sed -nE 's/.*Mobile: \+([0-9]+).*/\1/p')"
+DESKTOP_POINTS="$(echo "$SUMMARY_LINE" | sed -nE 's/.*Desktop: \+([0-9]+).*/\1/p')"
+ACCOUNT_EMAIL="$(echo "$SUMMARY_LINE" | sed -nE 's/.*Desktop: \+[0-9]+ \| (.*)$/\1/p')"
+
+[[ -n "$TOTAL_POINTS" ]] || TOTAL_POINTS="?"
+[[ -n "$MOBILE_POINTS" ]] || MOBILE_POINTS="?"
+[[ -n "$DESKTOP_POINTS" ]] || DESKTOP_POINTS="?"
+
+SCORE_LINE="得分：总 +${TOTAL_POINTS}（Mobile +${MOBILE_POINTS} / Desktop +${DESKTOP_POINTS}）"
+[[ -n "$ACCOUNT_EMAIL" ]] && ACCOUNT_LINE="账号：${ACCOUNT_EMAIL}" || ACCOUNT_LINE=""
+TIME_LINE="用时：${DUR_MIN}m${DUR_SEC}s"
+LOG_LINE="日志：${LOG_BASENAME}"
 
 if [[ ${#ALERTS[@]} -gt 0 ]]; then
-  notify "[Rewards] 需要关注 ⚠️" "日期：${TS}\n本次得分：${SUMMARY_PRETTY}\n\n异常：\n- $(printf '%s\n- ' "${ALERTS[@]}" | sed '$s/^- $//')\n\n日志：${LOG_FILE}"
+  notify "[Rewards] 需要关注 ⚠️" "时间：${TS}\n${SCORE_LINE}\n${ACCOUNT_LINE}\n${TIME_LINE}\n\n异常：\n- $(printf '%s\n- ' "${ALERTS[@]}" | sed '$s/^- $//')\n\n${LOG_LINE}"
 else
-  notify "[Rewards] 已完成 ✅" "日期：${TS}\n总计：${SUMMARY_PRETTY}\n状态：正常（未发现登录/token异常）\n日志：${LOG_FILE}"
+  if [[ "$TOTAL_POINTS" == "0" ]]; then
+    STATUS_LINE="状态：今日已刷完/无可做项"
+  else
+    STATUS_LINE="状态：正常"
+  fi
+  notify "[Rewards] 已完成 ✅" "时间：${TS}\n${SCORE_LINE}\n${ACCOUNT_LINE}\n${TIME_LINE}\n${STATUS_LINE}\n${LOG_LINE}"
 fi
 
 exit $EXIT_CODE
