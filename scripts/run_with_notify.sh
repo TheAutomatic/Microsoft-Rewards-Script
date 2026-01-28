@@ -57,7 +57,25 @@ notify() {
   send_pushplus "$title" "$body"
 }
 
-notify "[Rewards] 开始运行" "${TS}\nmode=${MODE}\nlog=${LOG_FILE}"
+# Human-friendly start notification
+notify "[Rewards] 启动" "日期：${TS}\n模式：${MODE}\n日志：${LOG_FILE}"
+
+# Ensure log exists for tail -F
+: > "$LOG_FILE"
+
+# Realtime watcher: alert when Microsoft Authenticator number match is required
+APPROVAL_NOTIFIED=0
+(
+  tail -n 0 -F "$LOG_FILE" 2>/dev/null | while IFS= read -r line; do
+    if [[ $APPROVAL_NOTIFIED -eq 0 && "$line" == *"Please approve login and select number:"* ]]; then
+      num="$(echo "$line" | sed -E 's/.*select number: ([0-9]+).*/\1/' )"
+      [[ -n "$num" ]] || num="(unknown)"
+      notify "[Rewards] 需要你确认" "Authenticator 数字匹配：${num}\n场景：Desktop 登录\n日期：${TS}\n日志：${LOG_FILE}"
+      APPROVAL_NOTIFIED=1
+    fi
+  done
+) &
+WATCHER_PID=$!
 
 set +e
 (
@@ -69,9 +87,12 @@ set +e
   else
     npm run start
   fi
-) 2>&1 | tee "$LOG_FILE"
+) 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
 set -e
+
+# Stop watcher
+kill "$WATCHER_PID" >/dev/null 2>&1 || true
 
 # Extract summary if present
 SUMMARY_LINE="$(grep -E "Collected: \+" -n "$LOG_FILE" | tail -n 1 | sed 's/^.*Collected:/Collected:/')"
@@ -93,10 +114,13 @@ if [[ $EXIT_CODE -ne 0 ]]; then
   ALERTS+=("进程退出码非 0：${EXIT_CODE}")
 fi
 
+# Human-friendly end notification
+SUMMARY_PRETTY="$SUMMARY_LINE"
+
 if [[ ${#ALERTS[@]} -gt 0 ]]; then
-  notify "[Rewards] 需要关注" "${TS}\n${SUMMARY_LINE}\n\n问题：\n- $(printf '%s\n- ' "${ALERTS[@]}" | sed '$s/^- $//')\n\nlog=${LOG_FILE}"
+  notify "[Rewards] 需要关注 ⚠️" "日期：${TS}\n本次得分：${SUMMARY_PRETTY}\n\n异常：\n- $(printf '%s\n- ' "${ALERTS[@]}" | sed '$s/^- $//')\n\n日志：${LOG_FILE}"
 else
-  notify "[Rewards] 完成" "${TS}\n${SUMMARY_LINE}\nexit=${EXIT_CODE}\nlog=${LOG_FILE}"
+  notify "[Rewards] 已完成 ✅" "日期：${TS}\n总计：${SUMMARY_PRETTY}\n状态：正常（未发现登录/token异常）\n日志：${LOG_FILE}"
 fi
 
 exit $EXIT_CODE
