@@ -36,7 +36,8 @@ send_telegram() {
   local text="$1"; shift || true
   [[ -n "${TG_BOT_TOKEN:-}" && -n "${TG_CHAT_ID:-}" ]] || return 0
   local payload
-  payload="$(printf '%s\n%s' "$title" "$text")"
+  # Interpret \n in body as real newlines for human-readable Telegram messages
+  payload="$(printf '%s\n%b' "$title" "$text")"
   curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
     -d "chat_id=${TG_CHAT_ID}" \
     --data-urlencode "text=${payload}" \
