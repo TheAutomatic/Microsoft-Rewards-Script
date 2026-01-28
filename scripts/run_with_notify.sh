@@ -141,14 +141,14 @@ TIME_LINE="用时：${DUR_MIN}m${DUR_SEC}s"
 LOG_LINE="日志：${LOG_BASENAME}"
 
 if [[ ${#ALERTS[@]} -gt 0 ]]; then
-  notify "[Rewards] 需要关注 ⚠️" "时间：${TS}\n${SCORE_LINE}\n${ACCOUNT_LINE}\n${TIME_LINE}\n\n异常：\n- $(printf '%s\n- ' "${ALERTS[@]}" | sed '$s/^- $//')\n\n${LOG_LINE}"
+  notify "[Rewards] 需要关注 ⚠️" "时间：${TS}\n${SCORE_LINE}\n${TIME_LINE}\n\n异常：\n- $(printf '%s\n- ' "${ALERTS[@]}" | sed '$s/^- $//')\n\n${LOG_LINE}"
 else
   if [[ "$TOTAL_POINTS" == "0" ]]; then
     STATUS_LINE="状态：今日已刷完/无可做项"
   else
     STATUS_LINE="状态：正常"
   fi
-  notify "[Rewards] 已完成 ✅" "时间：${TS}\n${SCORE_LINE}\n${ACCOUNT_LINE}\n${TIME_LINE}\n${STATUS_LINE}\n${LOG_LINE}"
+  notify "[Rewards] 已完成 ✅" "时间：${TS}\n${SCORE_LINE}\n${TIME_LINE}\n${STATUS_LINE}\n${LOG_LINE}"
 fi
 
 exit $EXIT_CODE
