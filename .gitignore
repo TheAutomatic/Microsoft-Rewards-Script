@@ -14,4 +14,9 @@ accounts.main.json
 bun.lock
 logs/
 .stfolder/
+
+# local secrets
 .env
+
+# local backup artifacts
+scripts/run_with_notify.sh.bak.*
