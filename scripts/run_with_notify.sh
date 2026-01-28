@@ -12,6 +12,8 @@ set -euo pipefail
 #   PUSHPLUS_TOKEN
 # Optional:
 #   MODE=build_start (default) | start_only
+#   NOTIFY_TG=all (default) | none | approval_only | end_only | alert_only
+#   NOTIFY_PUSHPLUS=all (default) | none | approval_only | end_only | alert_only
 
 REPO_DIR="${REPO_DIR:-/Users/kenny/clawd/zidong/Microsoft-Rewards-Script}"
 MODE="${MODE:-build_start}"
@@ -55,15 +57,37 @@ send_pushplus() {
     >/dev/null || true
 }
 
+should_notify() {
+  local policy="$1"; shift
+  local event="$1"; shift
+  case "$policy" in
+    all|"" ) return 0 ;;
+    none ) return 1 ;;
+    approval_only ) [[ "$event" == "approval" ]] ;;
+    end_only ) [[ "$event" == end_* ]] ;;
+    alert_only ) [[ "$event" == "end_alert" ]] ;;
+    * ) return 0 ;;
+  esac
+}
+
 notify() {
+  local event="$1"; shift
   local title="$1"; shift
   local body="$1"; shift || true
-  send_telegram "$title" "$body"
-  send_pushplus "$title" "$body"
+
+  local tg_policy="${NOTIFY_TG:-all}"
+  local pp_policy="${NOTIFY_PUSHPLUS:-all}"
+
+  if should_notify "$tg_policy" "$event"; then
+    send_telegram "$title" "$body"
+  fi
+  if should_notify "$pp_policy" "$event"; then
+    send_pushplus "$title" "$body"
+  fi
 }
 
 # Start notification
-notify "[Rewards] 启动" "时间：${TS}\n模式：${MODE}\n日志：${LOG_BASENAME}"
+notify start "[Rewards] 启动" "时间：${TS}\n模式：${MODE}\n日志：${LOG_BASENAME}"
 
 # Ensure log exists for tail -F
 : > "$LOG_FILE"
@@ -75,7 +99,7 @@ APPROVAL_NOTIFIED=0
     if [[ $APPROVAL_NOTIFIED -eq 0 && "$line" == *"Please approve login and select number:"* ]]; then
       num="$(echo "$line" | sed -E 's/.*select number: ([0-9]+).*/\1/' )"
       [[ -n "$num" ]] || num="(unknown)"
-      notify "[Rewards] 需要你确认" "Authenticator 数字匹配：${num}\n场景：Desktop 登录\n日期：${TS}\n日志：${LOG_FILE}"
+      notify approval "[Rewards] 需要你确认" "Authenticator 数字匹配：${num}\n场景：Desktop 登录\n日期：${TS}\n日志：${LOG_FILE}"
       APPROVAL_NOTIFIED=1
     fi
   done
@@ -141,14 +165,14 @@ TIME_LINE="用时：${DUR_MIN}m${DUR_SEC}s"
 LOG_LINE="日志：${LOG_BASENAME}"
 
 if [[ ${#ALERTS[@]} -gt 0 ]]; then
-  notify "[Rewards] 需要关注 ⚠️" "时间：${TS}\n${SCORE_LINE}\n${TIME_LINE}\n\n异常：\n- $(printf '%s\n- ' "${ALERTS[@]}" | sed '$s/^- $//')\n\n${LOG_LINE}"
+  notify end_alert "[Rewards] 需要关注 ⚠️" "时间：${TS}\n${SCORE_LINE}\n${TIME_LINE}\n\n异常：\n- $(printf '%s\n- ' "${ALERTS[@]}" | sed '$s/^- $//')\n\n${LOG_LINE}"
 else
   if [[ "$TOTAL_POINTS" == "0" ]]; then
     STATUS_LINE="状态：今日已刷完/无可做项"
   else
     STATUS_LINE="状态：正常"
   fi
-  notify "[Rewards] 已完成 ✅" "时间：${TS}\n${SCORE_LINE}\n${TIME_LINE}\n${STATUS_LINE}\n${LOG_LINE}"
+  notify end_ok "[Rewards] 已完成 ✅" "时间：${TS}\n${SCORE_LINE}\n${TIME_LINE}\n${STATUS_LINE}\n${LOG_LINE}"
 fi
 
 exit $EXIT_CODE
