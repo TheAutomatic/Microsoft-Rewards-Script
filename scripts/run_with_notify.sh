@@ -128,6 +128,7 @@ DUR_SEC=$((DURATION % 60))
 TOTAL_POINTS="$(echo "$SUMMARY_LINE" | sed -nE 's/.*Collected: \+([0-9]+).*/\1/p')"
 MOBILE_POINTS="$(echo "$SUMMARY_LINE" | sed -nE 's/.*Mobile: \+([0-9]+).*/\1/p')"
 DESKTOP_POINTS="$(echo "$SUMMARY_LINE" | sed -nE 's/.*Desktop: \+([0-9]+).*/\1/p')"
+# (Optional) account email extraction; we intentionally do NOT include it in notifications
 ACCOUNT_EMAIL="$(echo "$SUMMARY_LINE" | sed -nE 's/.*Desktop: \+[0-9]+ \| (.*)$/\1/p')"
 
 [[ -n "$TOTAL_POINTS" ]] || TOTAL_POINTS="?"
@@ -135,7 +136,7 @@ ACCOUNT_EMAIL="$(echo "$SUMMARY_LINE" | sed -nE 's/.*Desktop: \+[0-9]+ \| (.*)$/
 [[ -n "$DESKTOP_POINTS" ]] || DESKTOP_POINTS="?"
 
 SCORE_LINE="得分：总 +${TOTAL_POINTS}（Mobile +${MOBILE_POINTS} / Desktop +${DESKTOP_POINTS}）"
-[[ -n "$ACCOUNT_EMAIL" ]] && ACCOUNT_LINE="账号：${ACCOUNT_EMAIL}" || ACCOUNT_LINE=""
+ACCOUNT_LINE=""
 TIME_LINE="用时：${DUR_MIN}m${DUR_SEC}s"
 LOG_LINE="日志：${LOG_BASENAME}"
 
