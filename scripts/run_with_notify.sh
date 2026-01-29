@@ -99,7 +99,7 @@ APPROVAL_NOTIFIED=0
     if [[ $APPROVAL_NOTIFIED -eq 0 && "$line" == *"Please approve login and select number:"* ]]; then
       num="$(echo "$line" | sed -E 's/.*select number: ([0-9]+).*/\1/' )"
       [[ -n "$num" ]] || num="(unknown)"
-      notify approval "[Rewards] 需要你确认" "Authenticator 数字匹配：${num}\n场景：Desktop 登录\n日期：${TS}\n日志：${LOG_FILE}"
+      notify approval "[Rewards] 需要你确认 ${num}" "Authenticator 数字匹配：${num}\n场景：Desktop 登录\n日期：${TS}\n日志：${LOG_FILE}"
       APPROVAL_NOTIFIED=1
     fi
   done
