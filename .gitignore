@@ -15,6 +15,13 @@ bun.lock
 logs/
 .stfolder/
 
+# local run logs
+run-logs/
+launchd.out.log
+launchd.err.log
+scripts/run_daily_random_window.sh
+src/accounts1.json
+
 # local secrets
 .env
 
