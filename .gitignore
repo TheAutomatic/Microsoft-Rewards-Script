@@ -22,6 +22,9 @@ launchd.err.log
 scripts/run_daily_random_window.sh
 src/accounts1.json
 
+# package lock (local)
+package-lock.json
+
 # local secrets
 .env
 
