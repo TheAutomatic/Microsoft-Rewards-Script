@@ -16,6 +16,9 @@ fi
 
 START_EPOCH=$(date +%s)
 TS="$(date '+%F %T')"
+HOST_TAG="$(hostname)"
+TZ_TAG="$(date '+%Z%z')"
+REPO_TAG="$REPO_DIR"
 LOG_DIR="${REPO_DIR}/run-logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/run-$(date '+%F_%H%M%S').log"
@@ -27,7 +30,7 @@ send_telegram() {
   [[ -n "${TG_BOT_TOKEN:-}" && -n "${TG_CHAT_ID:-}" ]] || return 0
   local payload
   payload="$(printf '%s\n%b' "$title" "$text")"
-  curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage"     -d "chat_id=${TG_CHAT_ID}"     --data-urlencode "text=${payload}"     -d "disable_web_page_preview=true"     >/dev/null || true
+  curl -sS --connect-timeout 8 --max-time 20 -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage"     -d "chat_id=${TG_CHAT_ID}"     --data-urlencode "text=${payload}"     -d "disable_web_page_preview=true"     >/dev/null || true
 }
 
 send_pushplus() {
@@ -66,7 +69,7 @@ notify() {
   fi
 }
 
-notify start "[Rewards] 启动" "时间：${TS}\n模式：${MODE}\n日志：${LOG_BASENAME}"
+notify start "[Rewards] 启动" "时间：${TS}\n模式：${MODE}\n主机：${HOST_TAG}\n时区：${TZ_TAG}\n目录：${REPO_TAG}\n日志：${LOG_BASENAME}"
 
 : > "$LOG_FILE"
 
@@ -77,11 +80,18 @@ notify start "[Rewards] 启动" "时间：${TS}\n模式：${MODE}\n日志：${LO
       num="$(echo "$line" | sed -E 's/.*select number: ([0-9]+).*/\1/' )"
       [[ -n "$num" ]] || num="(unknown)"
       event_ts="$(date '+%F %T')"
-      notify approval "[Rewards] 需要你确认 ${num}" "Authenticator 数字匹配：${num}\n当前时间：${event_ts}\n日志：${LOG_BASENAME}"
+      notify approval "[Rewards] 需要你确认 ${num}" "Authenticator 数字匹配：${num}\n当前时间：${event_ts}\n主机：${HOST_TAG}\n时区：${TZ_TAG}\n日志：${LOG_BASENAME}"
     fi
   done
 ) &
 WATCHER_PID=$!
+
+cleanup_watcher() {
+  kill "$WATCHER_PID" >/dev/null 2>&1 || true
+  pkill -f "tail -n 0 -F ${LOG_FILE}" >/dev/null 2>&1 || true
+  wait "$WATCHER_PID" >/dev/null 2>&1 || true
+}
+trap cleanup_watcher EXIT
 
 set +e
 (
@@ -128,10 +138,10 @@ TIME_LINE="用时：${DUR_MIN}m${DUR_SEC}s"
 LOG_LINE="日志：${LOG_BASENAME}"
 
 if [[ ${#ALERTS[@]} -gt 0 ]]; then
-  notify end_alert "[Rewards] 需要关注 ⚠️" "时间：${TS}\n${SCORE_LINE}\n${TIME_LINE}\n\n异常：\n- $(printf '%s\n- ' "${ALERTS[@]}" | sed '$s/^- $//')\n\n${LOG_LINE}"
+  notify end_alert "[Rewards] 需要关注 ⚠️" "时间：${TS}\n主机：${HOST_TAG}\n时区：${TZ_TAG}\n${SCORE_LINE}\n${TIME_LINE}\n\n异常：\n- $(printf '%s\n- ' "${ALERTS[@]}" | sed '$s/^- $//')\n\n${LOG_LINE}"
 else
   STATUS_LINE="$( [[ "$TOTAL_POINTS" == "0" ]] && echo "状态：今日已刷完" || echo "状态：正常" )"
-  notify end_ok "[Rewards] 已完成 ✅" "时间：${TS}\n${SCORE_LINE}\n${TIME_LINE}\n${STATUS_LINE}\n${LOG_LINE}"
+  notify end_ok "[Rewards] 已完成 ✅" "时间：${TS}\n主机：${HOST_TAG}\n时区：${TZ_TAG}\n${SCORE_LINE}\n${TIME_LINE}\n${STATUS_LINE}\n${LOG_LINE}"
 fi
 
 exit $EXIT_CODE
