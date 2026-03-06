@@ -15,3 +15,15 @@ bun.lock
 logs/
 .stfolder/
 .env
+# local additions carried over from v3 custom branch
+
+# local run logs
+run-logs/
+launchd.out.log
+launchd.err.log
+src/accounts1.json
+# package lock (local)
+package-lock.json
+# local secrets
+# local backup artifacts
+scripts/run_with_notify.sh.bak.*
